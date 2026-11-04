@@ -20,6 +20,7 @@ const money=(v:number)=>'₹'+v.toLocaleString('en-IN');
 
 export default function CinemaApp(){
 
+ const [returnPath,setReturnPath]=useState('/');
  const [tab,setTab]=useState('Movies'),[query,setQuery]=useState(''),[language,setLanguage]=useState('All languages'),[genre,setGenre]=useState('All genres'),[type,setType]=useState('All cinemas'),[format,setFormat]=useState('All formats'),[date,setDate]=useState(dayKeys()[0]),[selectedMovie,setMovie]=useState(''),[selectedCinema,setCinema]=useState(''),[selectedShow,setShow]=useState(''),[chosen,setChosen]=useState<string[]>([]),[data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[toast,setToast]=useState(''),[modal,setModal]=useState<any>(null),[now,setNow]=useState(Date.now()),[ticketFilter,setTicketFilter]=useState('Upcoming'),[management,setManagement]=useState<any>(null),[manageShow,setManageShow]=useState(''),[waitSection,setWaitSection]=useState('Prime'),[waitQuantity,setWaitQuantity]=useState(2);
 
  const seenOffers=useRef(new Set<string>());
@@ -36,7 +37,7 @@ export default function CinemaApp(){
 
  function route(next:{tab?:string,movie?:string,cinema?:string,show?:string}){const params=new URLSearchParams();if(next.movie)params.set('movie',next.movie);if(next.cinema)params.set('cinema',next.cinema);if(next.show)params.set('show',next.show);if(next.tab&&next.tab!=='Movies')params.set('tab',next.tab);window.history.pushState({},'',params.size?'/?'+params:'/');readRoute();window.scrollTo({top:0,behavior:'instant'});setQuery('');}
 
- function readRoute(){const p=new URLSearchParams(window.location.search);setMovie(movies.some(m=>m.id===p.get('movie'))?p.get('movie')!:'');setCinema(cinemas.some(c=>c.id===p.get('cinema'))?p.get('cinema')!:'');const s=p.get('show');setShow(s&&showFor(s)?s:'');setTab(['Movies','Cinemas','Watchlist','My tickets','Studio'].includes(p.get('tab')||'')?p.get('tab')!:'Movies');setChosen([]);}
+ function readRoute(){setReturnPath(window.location.pathname+window.location.search);const p=new URLSearchParams(window.location.search);setMovie(movies.some(m=>m.id===p.get('movie'))?p.get('movie')!:'');setCinema(cinemas.some(c=>c.id===p.get('cinema'))?p.get('cinema')!:'');const s=p.get('show');setShow(s&&showFor(s)?s:'');setTab(['Movies','Cinemas','Watchlist','My tickets','Studio'].includes(p.get('tab')||'')?p.get('tab')!:'Movies');setChosen([]);}
 
  useEffect(()=>{readRoute();window.addEventListener('popstate',readRoute);return()=>window.removeEventListener('popstate',readRoute);},[]);
 
@@ -52,7 +53,7 @@ export default function CinemaApp(){
 
  async function action(body:any){setBusy(true);try{const r=await fetch('/api/cinema',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d:any=await r.json();if(!r.ok)throw new Error(d.error);setToast(d.message);if(body.action==='hold'){await load(true);setModal({type:'confirm',hold:d.hold});}else{setModal(null);await load(true);if(body.action==='confirm'||body.action==='join')route({tab:'My tickets'});}return d;}catch(e:any){setToast(e.message);await load(true);return null;}finally{setBusy(false);}}
 
- function signIn(){return '/signin-with-chatgpt?return_to='+encodeURIComponent(typeof window==='undefined'?'/':window.location.pathname+window.location.search);}
+ function signIn(){return '/signin-with-chatgpt?return_to='+encodeURIComponent(returnPath);}
 
  async function save(id:string){if(!user){setModal({type:'signin'});return;}await action({action:'save',movie:id,saved:!data?.saved.includes(id)});}
 
@@ -139,4 +140,5 @@ export default function CinemaApp(){
 }
 
 function ArrowDownIcon(){return <ArrowRight size={17} style={{transform:'rotate(45deg)'}}/>;}
+
 
