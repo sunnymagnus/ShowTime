@@ -2,7 +2,7 @@
 
 Big screens. Better plans. A working Hyderabad cinema-booking project with no payment step.
 
-**Live app:** https://showtime-hyderabad.givingrice4.chatgpt.site
+**Live app:** https://showtime-hyderabad.vercel.app
 
 ## Included
 
@@ -11,7 +11,7 @@ Big screens. Better plans. A working Hyderabad cinema-booking project with no pa
 - Twenty-two configured project screens, four non-overlapping shows per screen per day, and a rolling seven-day schedule.
 - Cinema, neighbourhood, venue-type and screen-format discovery.
 - Ninety-six selectable seats per show: Recliner, Prime and Classic categories, with project prices.
-- Sign in with ChatGPT, private account records and a shared persistent SQL database.
+- No customer sign-in. Signed, HttpOnly browser cookies provide private guest bookings and watchlists for up to 30 days.
 - Up to six seats per booking, atomic group holds, a five-minute hold window and refresh recovery.
 - Free confirmation, booking history, downloadable QR-reference tickets and cancellation before showtime.
 - A first-come eligible waitlist for adjacent seats in a requested category. Offers last up to ten minutes.
@@ -29,7 +29,7 @@ The movie catalogue is a checked snapshot, not a live release feed. It needs edi
 
 ## Stack
 
-React, TypeScript and Vinext, developed with Node.js. Production runs as a Cloudflare Worker through Sites. Shared records are stored in Cloudflare D1. Drizzle defines the schema and generates migrations. QR references are generated with `qrcode`. The hosting platform handles ChatGPT sign-in; no passwords or OAuth secrets are stored in source.
+React, TypeScript and Vinext, developed with Node.js. Production runs as a Cloudflare Worker through Sites. Shared records are stored in Cloudflare D1. Drizzle defines the schema and generates migrations. QR references are generated with `qrcode`. Only admin access uses platform sign-in. Customer sessions use an HMAC-signed HttpOnly, Secure cookie. The signing key is a private runtime setting, never source code.
 
 This differs from the original salon report's Express/PostgreSQL proposal. See [the project report](docs/PROJECT_REPORT.md) for the actual cinema architecture.
 
@@ -75,3 +75,11 @@ npm run build
 The `.openai/hosting.json` file identifies this separate Site and declares the DB binding. Sites applies the committed SQL migration and publishes a packaged Worker. GitHub contains the reviewable source mirror; pushing to GitHub alone does not deploy this app. SlotFlow is a separate project and has not been repurposed.
 
 Never commit `.env`, `.dev.vars`, credentials, local database state, `.wrangler`, `.sites-runtime` or generated build output. Production monitoring, independently scheduled queue processing, retention/deletion tooling, abuse controls and load testing remain necessary before commercial operation.
+
+## Guest access and the new public address
+
+Customers book directly without an account. My tickets, watchlist and waitlist are private to a signed browser session, valid for up to 30 days. Clearing cookies or moving to another device starts a new guest session; downloaded tickets can still be kept as files. Previously signed-in account bookings stay associated with that account.
+
+The public entry point is `https://showtime-hyderabad.vercel.app`. Vercel forwards the app to the existing Worker and D1 backend, preserving the shared database. The proxy disables caching of personalized responses. `PUBLIC_ORIGIN` restricts writes to the deployed public origin. `GUEST_SESSION_SECRET` is a random private runtime key. Configure a separate random key in the ignored local `.dev.vars` for guest development; never commit the real key.
+
+The footer **Admin** link opens the protected owner area on the backend host. Admins must authenticate as the configured project owner. Guest cookies cannot grant admin permissions. Customer booking requires no ChatGPT account.

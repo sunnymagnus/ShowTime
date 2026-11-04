@@ -1,5 +1,5 @@
 import {env} from 'cloudflare:workers';
-import {getChatGPTUser} from '../../chatgpt-auth';
+import {getVisitor,ensureVisitor,allowedWriteOrigin} from '../../visitor';
 import {movies,showFor,seatsFor} from '../../catalog';
 import {processQueue,contiguous} from './queue';
 export const dynamic='force-dynamic';
@@ -7,7 +7,7 @@ const json=(data:any,status=200)=>Response.json(data,{status,headers:{'Cache-Con
 const owner=(u:any)=>!!u&&u.email.toLowerCase()===String((env as any).STUDIO_OWNER_EMAIL||'').toLowerCase();
 export async function expire(db:D1Database){const now=Date.now();await db.batch([db.prepare("UPDATE queue SET status='expired' WHERE offer IN (SELECT id FROM holds WHERE status='held' AND expires<=?) AND status='offered'").bind(now),db.prepare("UPDATE holds SET status='expired' WHERE status='held' AND expires<=?").bind(now),db.prepare('DELETE FROM locks WHERE booking IS NULL AND expires<=?').bind(now)]);await processQueue(db);}
 export async function GET(req:Request){try{
- const db=env.DB!;await expire(db);const user=await getChatGPTUser(),showId=new URL(req.url).searchParams.get('show');
+ const db=env.DB!;await expire(db);const session=await ensureVisitor(req),user=session.user,showId=new URL(req.url).searchParams.get('show');
  let show:any=null,occupied:any[]=[],ownHold:any=null;
  if(showId){show=showFor(showId);if(!show)return json({error:'This show could not be found.'},404);
  const closed=await db.prepare('SELECT id FROM closed_shows WHERE id=?').bind(showId).first();if(closed)return json({error:'This show has been cancelled. Please choose another.'},410);
@@ -18,11 +18,11 @@ export async function GET(req:Request){try{
  const saved=user?(await db.prepare('SELECT movie FROM watchlist WHERE user=?').bind(user.userId).all()).results.map((r:any)=>r.movie):[];
  const closed=(await db.prepare('SELECT id FROM closed_shows').all()).results.map((r:any)=>r.id);
  const queue=user?(await db.prepare("SELECT q.id,q.show,q.section,q.quantity,q.status,q.created,q.offer,h.seats,h.expires,(SELECT COUNT(*) FROM queue w WHERE w.show=q.show AND w.status='waiting' AND (w.created<q.created OR(w.created=q.created AND w.id<=q.id))) AS position FROM queue q LEFT JOIN holds h ON h.id=q.offer WHERE q.user=? AND q.status IN('waiting','offered') ORDER BY q.created").bind(user.userId).all()).results:[];
- return json({user:user?{name:user.fullName||user.email.split('@')[0],isAdmin:owner(user)}:null,bookings,saved,show,occupied,hold:ownHold,closed,queue,now:Date.now()});
+ const response=json({user:{name:user.fullName||user.email.split('@')[0],isAdmin:!user.guest&&owner(user),guest:user.guest},bookings,saved,show,occupied,hold:ownHold,closed,queue,now:Date.now()});if(session.cookie)response.headers.set('Set-Cookie',session.cookie);return response;
  }catch(e){console.error('cinema.get',e);return json({error:'We couldn’t load the latest seats. Please try again.'},503);}}
 export async function POST(req:Request){try{
- if(req.headers.get('origin')!==new URL(req.url).origin)return json({error:'Please use the Showtime website to make changes.'},403);
- const u=await getChatGPTUser();if(!u)return json({error:'Sign in to save your seats.'},401);
+ if(!allowedWriteOrigin(req))return json({error:'Please use the Showtime website to make changes.'},403);
+ const u=await getVisitor(req);if(!u)return json({error:'Refresh this page to start your guest session, then try again.'},401);
  const b=await req.json() as any,db=env.DB!,now=Date.now();await expire(db);
  if(b.action==='join'){
   const show=showFor(b.show);if(!show||show.starts<=now||!['Recliner','Prime','Classic'].includes(b.section)||!Number.isInteger(b.quantity)||b.quantity<1||b.quantity>6)return json({error:'Choose a future show, seat category and between one and six seats.'},400);

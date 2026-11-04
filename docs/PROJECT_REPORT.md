@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Showtime is a web application for discovering films and making cinema plans. The project uses Hyderabad as its example city and includes ten cinema names. Five represent multiplexes with several configured screens, while five represent traditional single-screen theatres. Users can browse films, choose a cinema and show, select seats and confirm a booking without making a payment.
+Showtime is a web application for discovering films and making cinema plans. The project uses Hyderabad as its example city and includes ten cinema names. Five represent multiplexes with several configured screens, while five represent traditional single-screen theatres. Visitors can browse films, choose a cinema and show, select seats and confirm a booking without signing in or making a payment.
 
 The main problem is keeping seat availability correct when several users request the same seats. The application temporarily holds selected seats and checks availability on the server. It also includes a waitlist for people who cannot find adjacent seats in their preferred category. When matching seats become available, the earliest eligible waiting group receives a timed offer.
 
@@ -80,7 +80,7 @@ The presentation layer shows movie cards, cinema lists, showtimes, seat maps and
 | Component | Responsibility |
 |---|---|
 | Catalogue | Film, cinema, screen, date and show information |
-| Sign-in | Account identity supplied by ChatGPT authentication |
+| Guest sessions and admin access | Protected browser sessions for customers; separate owner authentication |
 | Seat holds | Temporary group reservation with a stored deadline |
 | Booking | Free confirmation, history and cancellation |
 | Waitlist | Ordered requests for adjacent seats in a category |
@@ -184,7 +184,7 @@ A recent dual-core computer with about 8 GB RAM and space for Node.js packages i
 
 The main interface contains movie discovery, cinema discovery, film details and show selection, a seat map, watchlist, My tickets and an owner control room. URL parameters identify a movie, cinema or show so visitors can share direct links. The interface includes form labels, keyboard focus, confirmation dialogs and responsive navigation.
 
-The backend has cinema, ticket and management routes. Protected operations require a signed-in identity. Write requests also check their origin. Queries bind input parameters instead of building SQL from untrusted values. Passwords and payment details are not stored by this application.
+The backend has cinema, ticket and management routes. Customer operations require a valid signed guest cookie, created automatically without login. Owner operations require the configured authenticated owner identity. Write requests also check their origin. Queries bind input parameters instead of building SQL from untrusted values. Passwords and payment details are not stored by this application.
 
 ### Working methodology
 
@@ -204,23 +204,23 @@ Waitlist requests specify seat category and group size. Adjacent seats must be i
 
 The test suite executes the actual server route code with a transactional SQLite adapter. It covers catalogue integrity, anonymous writes, invalid selections, seat ownership, group rollback, confirmation, private tickets, cancellation, hold expiry, saved films, queue ordering, waitlist promotion, concurrent conflicts and owner controls.
 
-Browser checks cover local sign-in, two-seat selection, hold recovery after reload, confirmation, ticket download, cancellation/history, filters, saved films, waitlist validation, dialogs and mobile navigation. Layouts are checked at phone, tablet and desktop widths. Tests create records only in the local development database.
+Browser checks cover guest session creation, two-seat selection, hold recovery after reload, confirmation, ticket download, cancellation/history, filters, saved films, waitlist validation, dialogs and mobile navigation. Layouts are checked at phone, tablet and desktop widths. Tests create records only in the local development database.
 
-For publication, source is committed to the hosting repository, the Worker build is packaged, and a saved version is deployed. The public audience allows browsing; booking still requires sign-in. A separate GitHub repository contains the source and project documentation.
+For publication, source is committed to the hosting repository, the Worker build is packaged, and a saved version is deployed. The public audience allows browsing and guest booking without sign-in. A separate GitHub repository contains the source and project documentation.
 
 ## 5. Results and discussion
 
 ### Result analysis
 
-At the local verification stage, eighteen route-level checks passed. The browser journey also passed for discovery, booking, ticket download, cancellation and saved movies. These results show that the tested workflows behave as designed in the development environment. Public deployment and access checks are recorded in the final handoff after publishing.
+At the local verification stage, twenty route-level checks passed. The browser journey also passed for discovery, booking, ticket download, cancellation and saved movies. These results show that the tested workflows behave as designed in the development environment. Public deployment and access checks are recorded in the final handoff after publishing.
 
 ### Web application UI
 
 The application uses original Showtime branding, local film artwork, a featured movie, filter chips and cinema cards. The seat map has category prices and a legend. Small screens use bottom navigation and a horizontally scrollable seating plan. Confirmation screens state that no payment is collected and that tickets are project records.
 
-### Registration and login
+### Guest access and admin login
 
-ChatGPT sign-in supplies the account identity. The application does not create a separate password account. New visitors can browse anonymously and sign in when they want to save a film or book. Tickets and account records are checked on the server before being returned.
+Customers do not register or sign in. The server creates a signed, HttpOnly browser cookie and verifies it before returning private bookings or accepting changes. Each browser gets a different guest identifier. The session lasts up to 30 days; clearing cookies or changing devices starts a new session. The owner signs in separately through the Admin entry. A guest session cannot grant owner privileges.
 
 ### Functionalities of the application
 
@@ -249,3 +249,7 @@ The project is suitable for learning interface development, account permissions,
 7. District Hyderabad movie listings: https://www.district.in/movies/hyderabad-movie-tickets
 8. Prasads official website: https://prasadz.com/
 9. Per-film, cinema and image references: `public/assets/SOURCES.md` and `app/catalog.ts`.
+
+### Public URL and hosting update
+
+The customer address is https://showtime-hyderabad.vercel.app. A Vercel routing deployment forwards to the existing Worker and SQL backend. Personalized pages and API responses are not cached by the proxy. The Admin entry continues to use protected platform sign-in; customer booking never requires it.
