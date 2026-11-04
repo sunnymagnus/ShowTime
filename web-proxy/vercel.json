@@ -5,6 +5,10 @@
   "outputDirectory": "public",
   "rewrites": [
     {
+      "source": "/",
+      "destination": "https://showtime-hyderabad.givingrice4.chatgpt.site/"
+    },
+    {
       "source": "/:path*",
       "destination": "https://showtime-hyderabad.givingrice4.chatgpt.site/:path*"
     }
