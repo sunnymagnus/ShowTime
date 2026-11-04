@@ -11,3 +11,4 @@
 .movie-card>p{font-size:11px}.movie-card>small{font-size:10px}.seat-scroll-hint{display:none}@media(max-width:620px){.seat-scroll-hint{display:block;text-align:center;font-size:10px;color:#9c7eb6;margin:0 0 14px}.movie-card>p{font-size:10px}.movie-card>small{font-size:9px}}
 
 .footer-links>a{font-size:10px;color:#9b8fa7}@media(max-width:620px){.footer-links>a{font-size:8px}}
+.live-seat-note{display:flex;align-items:center;justify-content:center;gap:7px;font-size:10px;color:#857091;margin:0 0 17px}.live-seat-note>span{height:6px;width:6px;background:#76a066;border-radius:50%}

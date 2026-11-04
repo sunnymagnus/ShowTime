@@ -7,6 +7,15 @@ const json=(data:any,status=200)=>Response.json(data,{status,headers:{'Cache-Con
 const owner=(u:any)=>!!u&&u.email.toLowerCase()===String((env as any).STUDIO_OWNER_EMAIL||'').toLowerCase();
 export async function expire(db:D1Database){const now=Date.now();await db.batch([db.prepare("UPDATE queue SET status='expired' WHERE offer IN (SELECT id FROM holds WHERE status='held' AND expires<=?) AND status='offered'").bind(now),db.prepare("UPDATE holds SET status='expired' WHERE status='held' AND expires<=?").bind(now),db.prepare('DELETE FROM locks WHERE booking IS NULL AND expires<=?').bind(now)]);await processQueue(db);}
 export async function GET(req:Request){try{
+ const params=new URL(req.url).searchParams;
+ if(params.get('seatsOnly')==='1'){
+  const show=showFor(params.get('show')||'');if(!show)return json({error:'This show could not be found.'},404);
+  const db=env.DB!,now=Date.now(),user=await getVisitor(req);
+  if(await db.prepare('SELECT id FROM closed_shows WHERE id=?').bind(show.id).first())return json({error:'This show has been cancelled. Please choose another.'},410);
+  const occupied=(await db.prepare('SELECT seat,booking IS NOT NULL AS booked FROM locks WHERE show=? AND (booking IS NOT NULL OR expires>?)').bind(show.id,now).all()).results;
+  const hold=user?await db.prepare("SELECT id,seats,total,expires FROM holds WHERE show=? AND user=? AND status='held' AND expires>? ORDER BY created DESC LIMIT 1").bind(show.id,user.userId,now).first():null;
+  return json({occupied,hold,now});
+ }
  const db=env.DB!;await expire(db);const session=await ensureVisitor(req),user=session.user,showId=new URL(req.url).searchParams.get('show');
  let show:any=null,occupied:any[]=[],ownHold:any=null;
  if(showId){show=showFor(showId);if(!show)return json({error:'This show could not be found.'},404);

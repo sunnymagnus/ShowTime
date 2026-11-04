@@ -83,3 +83,9 @@ Customers book directly without an account. My tickets, watchlist and waitlist a
 The public entry point is `https://showtime-hyderabad.vercel.app`. Vercel forwards the app to the existing Worker and D1 backend, preserving the shared database. The proxy disables caching of personalized responses. `PUBLIC_ORIGIN` restricts writes to the deployed public origin. `GUEST_SESSION_SECRET` is a random private runtime key. Configure a separate random key in the ignored local `.dev.vars` for guest development; never commit the real key.
 
 The footer **Admin** link opens the protected owner area on the backend host. Admins must authenticate as the configured project owner. Guest cookies cannot grant admin permissions. Customer booking requires no ChatGPT account.
+
+## Seat selection across devices
+
+Clicking a seat now immediately requests an exclusive server hold. There is no separate hold step. Adding or removing seats atomically replaces the held group, so other visitors cannot take a selected seat. Open seat maps fetch fresh seat-only state about once per second, without caching, and refresh when a tab regains focus. Deselecting, releasing, or navigating away from a direct seat selection releases the relevant hold. Closing the browser or losing connectivity is covered by the persisted five-minute expiry. A reload recovers an unexpired hold. Booked seats remain unavailable until cancellation. Waitlist offer seats remain fixed until accepted or released.
+
+`tests/seat-sync.cjs` uses two independent browser contexts to verify click-time exclusion, deselection, grouped selections, reload, release, navigation, confirmation and cancellation. Use `SHOWTIME_TEST_URL` to target the deployed public app. The seat-only endpoint filters expired locks directly, so they stop appearing occupied even before cleanup removes the rows.
