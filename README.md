@@ -1,91 +1,111 @@
 # Showtime
 
-Big screens. Better plans. A working Hyderabad cinema-booking project with no payment step.
+A Hyderabad cinema booking project that runs on your computer. The interface keeps the same movie cards, cinema listings, seating plan and purple design as the original app. This version uses a local Express server and SQLite database.
 
-**Live app:** https://showtime-hyderabad.vercel.app
+## Run it in VS Code
 
-## Included
-
-- Ten Hyderabad cinema names: five multiplexes and five single-screen theatres.
-- Eight films, local posters, movie details, search, genre and language filters, saved movies.
-- Twenty-two configured project screens, four non-overlapping shows per screen per day, and a rolling seven-day schedule.
-- Cinema, neighbourhood, venue-type and screen-format discovery.
-- Ninety-six selectable seats per show: Recliner, Prime and Classic categories, with project prices.
-- No customer sign-in. Signed, HttpOnly browser cookies provide private guest bookings and watchlists for up to 30 days.
-- Up to six seats per booking, atomic group holds, a five-minute hold window and refresh recovery.
-- Free confirmation, booking history, downloadable QR-reference tickets and cancellation before showtime.
-- A first-come eligible waitlist for adjacent seats in a requested category. Offers last up to ten minutes.
-- In-app offer notices, automatic polling, protected acceptance, decline, expiry and queue promotion.
-- Owner-only show cancellation/reopening and a booking overview.
-- Responsive layouts, mobile navigation, confirmation dialogs, focus handling, loading/error/empty states.
-
-There is no checkout, card collection or charge. The ticket value is illustrative; the amount paid is zero.
-
-## Important boundaries
-
-This is an independent student project, not District and not a cinema operator. Venue names and localities reference real places, but schedules, screen counts, seating maps, formats and prices are configured demonstration data. Bookings persist and coordinate with other app visitors, but are **not valid for admission** at those cinemas. Posters belong to their respective owners. Public catalogue and image sources are in [SOURCES.md](public/assets/SOURCES.md).
-
-The movie catalogue is a checked snapshot, not a live release feed. It needs editorial updates. No live cinema inventory, real ticketing integration, payment, SMS, email, refunds or commercial support service is connected.
-
-## Stack
-
-React, TypeScript and Vinext, developed with Node.js. Production runs as a Cloudflare Worker through Sites. Shared records are stored in Cloudflare D1. Drizzle defines the schema and generates migrations. QR references are generated with `qrcode`. Only admin access uses platform sign-in. Customer sessions use an HMAC-signed HttpOnly, Secure cookie. The signing key is a private runtime setting, never source code.
-
-This differs from the original salon report's Express/PostgreSQL proposal. See [the project report](docs/PROJECT_REPORT.md) for the actual cinema architecture.
-
-## Local setup
-
-Use Node.js 26 for the SQLite route tests. The framework requires Node.js 22.13 or newer.
+Install **Node.js 24 or later**. Open the folder containing this README and `package.json` in VS Code. Open **Terminal → New Terminal**, then run:
 
 ```sh
-npm run install:ci
-npm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_sticky_sheva_callister.sql
-npm run dev -- --port 5174
+npm install
+npm run dev
 ```
 
-Apply each migration once, in order. Do not replay an already applied migration against an existing database.
+Open **http://localhost:3000**. Keep the terminal running. Press **Ctrl+C** to stop.
 
-Local sign-in uses the starter's `seedy@sites.test` identity. This development identity is not present in production. To test owner controls locally, set `STUDIO_OWNER_EMAIL=seedy@sites.test` in the ignored `.dev.vars` file and restart the server. Production owner access is configured privately through the hosting platform and must match the owner's ChatGPT account email.
+On Windows, if PowerShell blocks `npm.ps1`, use `npm.cmd install` and `npm.cmd run dev`. You can also double-click `START_SHOWTIME.cmd`.
 
-## Tests
+After installing packages once, you can press **F5** in VS Code and choose **Run Showtime on localhost**. This starts the server under the debugger and opens the browser.
 
-```sh
-npm test
-npm run typecheck
-npm run build
+The database and signing key are created automatically in `.data/` on first run. No hosting account, API key or separate database installation is needed. Posters and fonts are included locally. An internet connection is needed for the initial package installation; the booking flow works offline afterward. The optional Google Maps link needs internet access.
+
+## Admin
+
+Click **Admin** in the footer, then **Admin sign in**.
+
+| Field      | Local demonstration value         |
+| ---------- | --------------------------------- |
+| Username   | `admin`                           |
+| Password   | `Showtime@123`                    |
+| Login page | http://localhost:3000/admin/login |
+
+The admin can choose a date, review recent bookings, cancel a future show and reopen a show. Cancelling a show also cancels its project bookings and releases held seats. Reopening does not restore cancelled tickets. Customers book as guests and do not sign in.
+
+To change the local credentials or port, copy `.env.example` to `.env`, edit it and restart the server. The default server listens only on the local computer.
+
+## Included features
+
+- Ten Hyderabad cinema names: five multiplexes and five single screens.
+- Eight film entries, movie details, search, language/genre filters and a private watchlist.
+- Twenty-two configured screens and a rolling seven-day show schedule.
+- Ninety-six seats per show with Recliner, Prime and Classic categories.
+- Up to six seats per booking, held on selection for up to five minutes.
+- Automatic seat updates between browser sessions, including release and cancellation.
+- Group changes that either succeed completely or roll back completely.
+- Free booking confirmation, private history and QR-reference ticket downloads.
+- Cancellation before showtime.
+- A waitlist for adjacent seats, eligible allocation and timed offers.
+- Local admin sign-in and show management.
+- Responsive desktop/mobile layouts, dialogs, loading states and validation.
+
+Bookings are saved in the local database and survive a server restart. Guest tickets belong to the browser that booked them. Clearing cookies starts a new guest identity. An incognito window has a separate identity, which is useful for demonstrating seat conflicts.
+
+## Project structure
+
+```text
+client/
+  CinemaApp.tsx          Main React interface
+  main.tsx              Browser entry point
+  styles.css            The application's styles
+server/
+  index.ts              Starts the Express server
+  app.ts                HTTP routes, local login and frontend serving
+  config.ts             Local settings and automatic session key
+  database.ts           SQLite access and atomic transactions
+  visitor.ts            Guest sessions and request origin checks
+  admin.ts              Admin password check and signed cookie
+  routes/
+    cinema.ts           Holds, booking, cancellation and watchlist
+    ticket.ts           Private ticket download
+    manage.ts           Admin show controls
+  services/waitlist.ts   Adjacent-seat matching and offers
+shared/catalog.ts       Films, cinemas, generated shows and seat prices
+database/schema.sql     Complete SQL schema
+public/                 Posters, favicon, fonts and their source notes
+tests/                  API and browser checks
+docs/                   Architecture and professor demonstration guide
 ```
 
-`tests/cinema.test.mjs` runs the production route code against an atomic SQLite adapter. It checks catalogue integrity, ownership, seat conflicts, all-or-nothing holds, server pricing, idempotent confirmation, QR tickets, cancellations, watchlist, queue order, expiry and owner controls. The competing-request test exercises logical conflicts; it does not establish hosted D1 throughput or commercial-scale capacity.
+The frontend and backend share the catalogue, so prices, shows and seat identifiers use the same definitions. The server validates every booking request and calculates its own total. Browser state alone cannot reserve a seat.
 
-`tests/browser.cjs` runs desktop and mobile journeys, including local sign-in, hold recovery after reload, confirmation, QR-ticket download, cancellation/history, filters, watchlist, waitlist validation, keyboard dialogs and overflow checks. Its browser import and Chrome path reflect the Windows authoring environment; adjust these paths to run it elsewhere. Browser tests operate on the local database only.
+## Commands
 
-## Storage and queue rules
+| Command                | Purpose                                                      |
+| ---------------------- | ------------------------------------------------------------ |
+| `npm run dev`          | Start localhost with live editing                            |
+| `npm start`            | Build the interface, then serve the built application        |
+| `npm run build`        | Generate the browser build in `dist/`                        |
+| `npm run typecheck`    | Check TypeScript                                             |
+| `npm test`             | Run 22 integration checks against a temporary local database |
+| `npm run test:browser` | Run four browser journeys                                    |
+| `npm run format`       | Format source code                                           |
 
-- A seat-lock primary key combines the show and seat IDs. A conflicting insert rolls back the complete D1 batch, so a group cannot be partly held.
-- Related hold, lock and booking changes run together. Confirmation checks account ownership, persisted deadline, seat count and show cancellation on the server.
-- The waitlist is sorted by joining time and then ID. The earliest eligible group is offered adjacent seats in the requested category. A group too large for the available space may wait while a smaller eligible group proceeds.
-- The allocator does not treat seats across the aisle as adjacent. It stores offers before notifying the browser.
-- Expired offers cannot be confirmed. The next eligible group is considered on reconciliation. All deadlines survive server restarts.
-- Reconciliation runs on API requests, cancellations and releases. An open browser polls every 12 seconds. When nobody visits, expiry processing resumes on the next request; there is **no independent background scheduler** in this version.
-- Notifications are in-app. Visitors should check My tickets for waitlist offers. No email/SMS delivery is implied.
+For browser checks, first run `npx playwright install chromium`. If you want to use an installed Chrome instead, set `SHOWTIME_CHROME_PATH` to its executable path. Browser checks create and cancel test bookings in the running app's local database. API tests use a separate temporary database.
 
-## Publishing and GitHub
+For an exact install from the committed lockfile, use `npm ci` instead of `npm install`.
 
-The `.openai/hosting.json` file identifies this separate Site and declares the DB binding. Sites applies the committed SQL migration and publishes a packaged Worker. GitHub contains the reviewable source mirror; pushing to GitHub alone does not deploy this app. SlotFlow is a separate project and has not been repurposed.
+## Data and local operation
 
-Never commit `.env`, `.dev.vars`, credentials, local database state, `.wrangler`, `.sites-runtime` or generated build output. Production monitoring, independently scheduled queue processing, retention/deletion tooling, abuse controls and load testing remain necessary before commercial operation.
+`.data/showtime.sqlite` stores bookings, holds, locks, watchlist entries, closed shows and the waitlist. SQLite also creates temporary `-wal` and `-shm` companion files. `.data/session.key` signs guest/admin sessions and is generated separately on each computer.
 
-## Guest access and the new public address
+Keep `.data/` if you want to retain your demonstration records. To start a new database without deleting anything, set `DATA_DIR=.data-fresh` in `.env` and restart. The app creates the new directory automatically. Switching the data directory also starts new signed sessions.
 
-Customers book directly without an account. My tickets, watchlist and waitlist are private to a signed browser session, valid for up to 30 days. Clearing cookies or moving to another device starts a new guest session; downloaded tickets can still be kept as files. Previously signed-in account bookings stay associated with that account.
+Seat maps poll about once per second while active. A selected seat becomes unavailable after the server accepts its hold. Deselecting, releasing or leaving direct selection releases the hold. Reloading recovers an unexpired hold; closing the browser is covered by the stored expiry. A waitlist offer lasts up to ten minutes and keeps its assigned group fixed. Queue reconciliation is request-driven, with wider booking/offer refresh about every twelve seconds.
 
-The public entry point is `https://showtime-hyderabad.vercel.app`. Vercel forwards the app to the existing Worker and D1 backend, preserving the shared database. The proxy disables caching of personalized responses. `PUBLIC_ORIGIN` restricts writes to the deployed public origin. `GUEST_SESSION_SECRET` is a random private runtime key. Configure a separate random key in the ignored local `.dev.vars` for guest development; never commit the real key.
+## Presentation
 
-The footer **Admin** link opens the protected owner area on the backend host. Admins must authenticate as the configured project owner. Guest cookies cannot grant admin permissions. Customer booking requires no ChatGPT account.
+See [the demonstration guide](docs/DEMONSTRATION.md) for a short walkthrough and the files to explain to your professor. See [the architecture notes](docs/ARCHITECTURE.md) for the database and request flow.
 
-## Seat selection across devices
+This repository's current version is the standalone localhost edition. The old hosting configuration and platform sign-in are not used. The earlier hosted implementation remains available in Git history.
 
-Clicking a seat now immediately requests an exclusive server hold. There is no separate hold step. Adding or removing seats atomically replaces the held group, so other visitors cannot take a selected seat. Open seat maps fetch fresh seat-only state about once per second, without caching, and refresh when a tab regains focus. Deselecting, releasing, or navigating away from a direct seat selection releases the relevant hold. Closing the browser or losing connectivity is covered by the persisted five-minute expiry. A reload recovers an unexpired hold. Booked seats remain unavailable until cancellation. Waitlist offer seats remain fixed until accepted or released.
-
-`tests/seat-sync.cjs` uses two independent browser contexts to verify click-time exclusion, deselection, grouped selections, reload, release, navigation, confirmation and cancellation. Use `SHOWTIME_TEST_URL` to target the deployed public app. The seat-only endpoint filters expired locks directly, so they stop appearing occupied even before cleanup removes the rows.
+Cinema names reference real venues, but configured screen counts, schedules, seat maps and prices are project data. No payment is collected. The downloaded tickets are not valid for admission at real cinemas. No real operator inventory, email or SMS service is connected. Catalogue/image sources are in `public/assets/SOURCES.md`; local font licenses are in `public/fonts/`.

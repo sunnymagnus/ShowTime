@@ -1,15 +1,15 @@
-name: Check Showtime
+name: Local app checks
 on: [push, pull_request]
 jobs:
-  check:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 26
+          node-version: 24
           cache: npm
-      - run: npm run install:ci
-      - run: npm test
+      - run: npm ci
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
